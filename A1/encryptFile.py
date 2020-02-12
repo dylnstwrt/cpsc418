@@ -52,6 +52,6 @@ def main():
     ciphertext = encryptor.update(padded_data) + encryptor.finalize()
     output.write(ciphertext)
     output.close()
-    
+
 if __name__ == "__main__":
     main()
