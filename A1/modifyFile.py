@@ -72,16 +72,19 @@ def main():
     toDecode = message_bytes[:offset]
     toWrite = toDecode.decode('cp437')
     print("Original Message: "+toWrite)
+    output = open("plain.txt", "w")
+    output.write(toWrite)
+    output.close()
+    print("> plain.txt written")
     index = toWrite.find("CODE-RED")
     if(index != -1):
         toWrite = toWrite.replace("CODE-RED","CODE-BLUE", 10)
         print("Modified: "+toWrite)
+        output = open("modifiedPlain.txt", "w")
+        output.write(toWrite)
+        output.close()
+        print("> modifiedPlain.txt written")
 
-    output = open("plain.txt", "w")
-    output.write(toWrite)
-    output.close()
-
-    print("Plaintext has been written to plain.txt")
 
 if __name__ == "__main__":
     main()
