@@ -1,3 +1,12 @@
+'''
+File: modifyFile.py
+Class: CPSC418 - Winter 2020
+Name: Dylan Stewart
+UCID: 30024193
+Assignment : 1
+Question: 6
+
+'''
 import sys
 import os
 
@@ -73,17 +82,13 @@ def main():
     toWrite = toDecode.decode('cp437')
     print("Original Message: "+toWrite)
     output = open("plain.txt", "w")
-    output.write(toWrite)
-    output.close()
-    print("> plain.txt written")
     index = toWrite.find("CODE-RED")
     if(index != -1):
         toWrite = toWrite.replace("CODE-RED","CODE-BLUE", 10)
         print("Modified: "+toWrite)
-        output = open("modifiedPlain.txt", "w")
-        output.write(toWrite)
-        output.close()
-        print("> modifiedPlain.txt written")
+    output.write(toWrite)
+    output.close()
+
 
 
 if __name__ == "__main__":
