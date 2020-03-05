@@ -1,3 +1,12 @@
+'''
+File: encryptFile.py
+Class: CPSC418 - Winter 2020
+Name: Dylan Stewart
+UCID: 30024193
+Assignment : 1
+Question: 6
+
+'''
 import sys
 import os
 
