@@ -12,8 +12,11 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 HOST = '127.0.0.1'  # The server's hostname or IP address. This is the local host address
 PORT = 65432        # The port used by the server, usually between 0 - 65535. Lower ports may be resrved
-
-
+    
+    
+def genRand(prime):
+    upperBound = prime - 2
+    return secrets.SystemRandom().randint(0, upperBound)
 
 # Ask for username via standard input
 def main():
@@ -50,7 +53,7 @@ def main():
         conn.sendall(salt)
         conn.sendall(v)
         
-        x = None
+        del x
         
         conn.close()
     
@@ -60,6 +63,49 @@ def main():
         #connect to server
         conn.connect((HOST, PORT))
         
+        N = int.from_bytes(conn.recv(64), 'big')
+        g = int.from_bytes(conn.recv(64), 'big')
+        print(N)
+        print(g)
+        a = genRand(N)
+        A = pow(g, a, N).to_bytes(64, 'big')
+        print(A)
+        
+        conn.sendall(b'p')
+        conn.sendall(unamelength)
+        conn.sendall(unamebytes)
+        conn.sendall(A)
+        
+        salt = conn.recv(16)
+        B = conn.recv(64)
+        print(B)
+        
+        digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+        digest.update(A+B)
+        hashBytes = digest.finalize()
+        u = int.from_bytes(hashBytes, 'big') % N
+        
+        print(u)
+        
+        digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+        digest.update(N.to_bytes(64,'big') + g.to_bytes(64, 'big'))
+        hashBytes = digest.finalize()
+        k = int.from_bytes(hashBytes, 'big')
+        print(k)
+        
+        base = int.from_bytes(B, 'big') - (k*int.from_bytes(v, 'big'))
+        digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+        digest.update(salt+upasswordbytes)
+        x = int.from_bytes(digest.finalize(), 'big')
+        
+        K_client = 
+        print(K_client)
+        
+        digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+        digest.update(A + B + K_client)
+        M_1 = digest.finalize()
+        
+        conn.sendall(M_1)
 
 if __name__ == "__main__":
     main()
