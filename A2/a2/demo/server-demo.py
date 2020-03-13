@@ -2,8 +2,26 @@
 import socket
 import sys
 import os
+import sympy
+import secrets
 HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
 PORT = 65432        # Port to listen on (non-privileged ports are > 1023)
+
+def generatePrime():
+    while True:
+        while True:
+            q = secrets.randbits(511)
+            if sympy.isprime(q):
+                break
+        N = (2*q) + 1
+        if sympy.isprime(N):
+            return N
+
+#leave for now, might need to optimize later
+def calculatePrimRoots(num):
+    for i in range(1, num, 1):
+        if sympy.is_primitive_root(i, num):
+            return i
 
 
 # socket.socket() creates a socket object
