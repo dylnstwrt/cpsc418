@@ -31,6 +31,11 @@ def calculatePrimRoots(num):
 def genRand(prime):
     upperBound = prime - 2
     return secrets.SystemRandom().randint(0, upperBound)
+    
+def hashBytes(bytesToHash):
+    digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+    digest.update(bytesToHash)
+    return digest.finalize()
 
 def main():
     saltDict = dict()
@@ -65,64 +70,56 @@ def main():
             with conn:
                 print('Connected by', addr)
                 
-                publicBytes =  N.to_bytes(64, 'big') + g.to_bytes(64, 'big')
+                publicBytes =  N.to_bytes(64, byteorder='big') + g.to_bytes(64, byteorder='big')
                 conn.sendall(publicBytes)
                 
                 switch = conn.recv(1)
                 switch = switch.decode('utf-8')
                 
-                length = int.from_bytes(conn.recv(4), 'big')
+                length = int.from_bytes(conn.recv(4), byteorder='big')
                 uname = conn.recv(length)
                 user = uname.decode('utf-8')
                 user = user.strip('\n')
+                print("Username: "+user)
                 
                 if switch == 'r':
                     salt = conn.recv(16)
-                    v = int.from_bytes(conn.recv(64), 'big')
+                    v = int.from_bytes(conn.recv(64), byteorder='big')
                     saltDict.update({user: salt})
                     vDict.update({user: v})
                     print("Registration Successful")
                 
                 if switch == 'p':
                     
-                    print(N)
-                    print(g)
+                    print("N: ",N)
+                    print("g: ",g)
                     A = conn.recv(64)
+                    print("A: ",A)
                     salt = saltDict.get(user)
                     v = vDict.get(user)
-                    
-                    print(A)
+                                    
+                    k = int.from_bytes(hashBytes(N.to_bytes(64,byteorder='big') + g.to_bytes(64, byteorder='big')), byteorder='big')
+                    print("k: ",k)
                     
                     b = genRand(N)
-                    B = pow(g, b, N).to_bytes(64, 'big')
-                    print(B)
+                    B_int = (((k*v)%N) + pow(g,b,N))%N
+                    B = B_int.to_bytes(64, byteorder='big')
+                    print("B: ",B)
                     
+                    print("Salt Sent: ",salt)
                     conn.sendall(salt)
                     conn.sendall(B)
                     
-                    digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-                    digest.update(A+B)
-                    hashBytes = digest.finalize()
-                    u = int.from_bytes(hashBytes, 'big') % N
+                    u = int.from_bytes(hashBytes(A+B), byteorder='big') % N
                     
-                    print(u)
+                    print("u", u)
                     
-                    digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-                    digest.update(N.to_bytes(64,'big') + g.to_bytes(64, 'big'))
-                    hashBytes = digest.finalize()
-                    k = int.from_bytes(hashBytes, 'big')
-                    print(k)
                     
-                    K_server = 
+                    K_server = pow(((int.from_bytes(A, byteorder='big') % N) * pow(v,u,N)), b, N)
+                    print(K_server)
                     
-                    M_1 = conn.recv(64)
-                    
-                    digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-                    digest.update(A + B + K_server)
-                    toCompare = digest.finalize()
-                    
-                    if (toCompare == M_1):
-                        print("MATCH")
+                    M_1 = hashBytes(A + B + K_server.to_bytes(64,byteorder='big'))
+                    print("M_1: ",M_1)
 
 if __name__ == "__main__":
     main()
