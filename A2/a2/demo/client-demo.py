@@ -28,11 +28,12 @@ def hashBytes(bytesToHash):
 def main():
     print("Please enter a username: ")
     uname = sys.stdin.readline()
+    uname = uname.strip('\n')
     # encode it as bytes, and record the length
     unamebytes = uname.encode('utf-8')
     # convert store the length in a 4byte array in big-endian
     unamelength = len(unamebytes).to_bytes(4, byteorder='big')
-
+    
     print("Please enter a password: ")
     upassword = sys.stdin.readline()
     upassword = upassword.strip('\n')
@@ -41,7 +42,7 @@ def main():
     salt = os.urandom(16)
 
     x = int.from_bytes(hashBytes(salt+upasswordbytes), byteorder='big')
-
+    print("Client: I = \'"+uname+"\'", flush=True)
     # create socket object
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as conn:
         #connect to server
@@ -52,14 +53,20 @@ def main():
         
         v = pow(g,x,N).to_bytes(64, byteorder='big')
         
+        print("Client: Sending 'r' <"+bytes('r', 'utf-8').hex()+">", flush=True)
         conn.sendall(b'r')
+        print("Client: Sending |I| <"+unamelength.hex()+">", flush=True)
         conn.sendall(unamelength)
+        print("Client: Sending I <"+unamebytes.hex()+">", flush=True)
         conn.sendall(unamebytes)
+        print("Client: s = <"+salt.hex()+">", flush=True)
+        print("Client: Sending s <"+salt.hex()+">", flush=True)
         conn.sendall(salt)
+        print("Client: v =",int.from_bytes(v, byteorder='big'), flush=True)
+        print("Client: Sending v <"+v.hex()+">", flush=True)
         conn.sendall(v)
-        print("Salt Generated :", salt)
         del x
-        
+        print("Client: Registration successful.")
         conn.close()
     
     time.sleep(0.5)
@@ -68,47 +75,57 @@ def main():
         #connect to server
         conn.connect((HOST, PORT))
         
+        
         N = int.from_bytes(conn.recv(64), byteorder='big')
         g = int.from_bytes(conn.recv(64), byteorder='big')
-        print("N: ",N)
-        print("g: ",g)
         a = genRand(N)
         A = pow(g, a, N).to_bytes(64, byteorder='big')
-        print("A: ",A)
-        #print(A)
         
+        print("Client: N =", N, flush=True)
+        print("Client: g =", g, flush=True)
+        print("Client: a =", a, flush=True)
+        print("Client: A =", int.from_bytes(A, byteorder='big'), flush=True)
+        
+        print("Client: Sending 'p' <"+bytes('p', 'utf-8').hex()+">", flush=True)
         conn.sendall(b'p')
+        print("Client: Sending |I| <"+unamelength.hex()+">", flush=True)
         conn.sendall(unamelength)
+        print("Client: Sending I <"+unamebytes.hex()+">", flush=True)
         conn.sendall(unamebytes)
+        print("Client: Sending A <"+A.hex()+">", flush=True)
         conn.sendall(A)
         
         salt = conn.recv(16)
-        print("Salt Recv: ", salt)
+        print("Client: s =<"+salt.hex()+">", flush=True)
         B = conn.recv(64)
-        print("B: ", B)
-        #print(B)
+        print("Client: B =",int.from_bytes(B, byteorder='big'), flush=True)
         
         u = int.from_bytes(hashBytes(A+B), byteorder='big') % N
-        print("u", u)
+        print("Client: u =", u, flush=True)
         
         k = int.from_bytes(hashBytes(N.to_bytes(64,byteorder='big') + g.to_bytes(64, byteorder='big')), byteorder='big')
-        print("k: ",k)
+        print("Client: k =", k, flush=True)
         
         x = int.from_bytes(hashBytes(salt+upasswordbytes), byteorder='big')
         
         
-        K_client = pow((int.from_bytes(B, byteorder='big')%N) - ((k * int.from_bytes(v, byteorder='big'))%N), (a + (u*x)), N)
-        print(K_client)
+        k_client = pow((int.from_bytes(B, byteorder='big')%N) - ((k * int.from_bytes(v, byteorder='big'))%N), (a + (u*x)), N)
+        print("Client: k_client =", k_client, flush=True)
         
-        M_1 = hashBytes(A + B + K_client.to_bytes(64,byteorder='big'))
-        print("M_1: ",M_1)
-
+        M_1 = hashBytes(A + B + k_client.to_bytes(64,byteorder='big'))
+        print("Client: M1 = <"+M_1.hex()+">", flush=True)
+        print("Client: Sending M1 <"+M_1.hex()+">",flush=True)
+        conn.sendall(M_1)
+        M_2 = hashBytes(A + M_1 + k_client.to_bytes(64, byteorder='big'))
+        M_2_Recv = conn.recv(64)
+        print("Client: M2 = <"+M_2_Recv.hex()+">", flush=True)
+        if (M_2_Recv == M_2):
+            print("Client: Negotiation successful", flush=True)
+        else:
+            print("Client: Negotiation unsuccessful", flush=True)
+        conn.close()
+        
+        
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
 #print('Received', repr(data))

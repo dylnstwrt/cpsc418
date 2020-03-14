@@ -4,6 +4,7 @@ import sys
 import os
 import sympy
 import secrets
+import time
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
@@ -68,8 +69,11 @@ def main():
 
             ## conn is a new socket which is used to communicate with the client
             with conn:
-                print('Connected by', addr)
-                
+                #print('Connected by', addr)
+                print("Server: N =",N,flush=True)
+                print("Server: g =",g,flush=True)
+                print("Server: Sending N <"+N.to_bytes(64, byteorder='big').hex()+">",flush=True)
+                print("Server: Sending g <"+g.to_bytes(64, byteorder='big').hex()+">",flush=True)
                 publicBytes =  N.to_bytes(64, byteorder='big') + g.to_bytes(64, byteorder='big')
                 conn.sendall(publicBytes)
                 
@@ -80,46 +84,61 @@ def main():
                 uname = conn.recv(length)
                 user = uname.decode('utf-8')
                 user = user.strip('\n')
-                print("Username: "+user)
+                print("Server: I = "+user,flush=True)
                 
                 if switch == 'r':
                     salt = conn.recv(16)
+                    print("Server: s = <"+salt.hex()+">",flush=True)
                     v = int.from_bytes(conn.recv(64), byteorder='big')
+                    print("Server: v =",v,flush=True)
                     saltDict.update({user: salt})
                     vDict.update({user: v})
-                    print("Registration Successful")
+                    print("Server: Registration successful")
                 
                 if switch == 'p':
                     
-                    print("N: ",N)
-                    print("g: ",g)
+                    
                     A = conn.recv(64)
-                    print("A: ",A)
                     salt = saltDict.get(user)
                     v = vDict.get(user)
                                     
-                    k = int.from_bytes(hashBytes(N.to_bytes(64,byteorder='big') + g.to_bytes(64, byteorder='big')), byteorder='big')
-                    print("k: ",k)
+                    k = int.from_bytes(hashBytes(N.to_bytes(64,byteorder='big') + g.to_bytes(64, byteorder='big')),\
+                        byteorder='big')
                     
                     b = genRand(N)
                     B_int = (((k*v)%N) + pow(g,b,N))%N
                     B = B_int.to_bytes(64, byteorder='big')
-                    print("B: ",B)
                     
-                    print("Salt Sent: ",salt)
+                    print("Server: b =",b,flush=True)
+                    print("Server: k =",k,flush=True)
+                    print("Server: B =",int.from_bytes(B, byteorder='big'),flush=True)
+                    print("Server: I = "+user,flush=True)
+                    print("Server: A =",int.from_bytes(A, byteorder='big'),flush=True)
+                    
+                    print("Server: Sending s <"+salt.hex()+">",flush=True)
                     conn.sendall(salt)
+                    print("Server: Sending B <"+B.hex()+">",flush=True)
                     conn.sendall(B)
                     
                     u = int.from_bytes(hashBytes(A+B), byteorder='big') % N
+                    print("Server: u =",u,flush=True)
                     
-                    print("u", u)
+                    k_server = pow(((int.from_bytes(A, byteorder='big') % N) * pow(v,u,N)), b, N)                   
+                    M_1 = hashBytes(A + B + k_server.to_bytes(64,byteorder='big'))
                     
+                    print("Server: k_server =",k_server,flush=True)
+                    print("Server: M1 = <"+M_1.hex()+">",flush=True)
                     
-                    K_server = pow(((int.from_bytes(A, byteorder='big') % N) * pow(v,u,N)), b, N)
-                    print(K_server)
-                    
-                    M_1 = hashBytes(A + B + K_server.to_bytes(64,byteorder='big'))
-                    print("M_1: ",M_1)
+                    if (M_1 == conn.recv(64)):
+                        M_2 = hashBytes(A + M_1 + k_server.to_bytes(64, byteorder='big'))
+                        print("Server: M2 = <"+M_2.hex()+">",flush=True)
+                        print("Server: Sending M2 <"+M_2.hex()+">",flush=True)
+                        print("Server: Negotiation successful")
+                        conn.sendall(M_2)
+                    else:
+                        conn.sendall(M_1)
+                        print("Server: Negotiation unsucessful")
+                    conn.close()
 
 if __name__ == "__main__":
     main()
