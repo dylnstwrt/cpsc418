@@ -22,7 +22,23 @@ PORT = 31802        # The port used by the server, usually between 0 - 65535. Lo
     
     
 def main():
-    pass
+    print("Please enter a username: ")
+    uname = sys.stdin.readline()
+    uname = uname.strip('\n')
+    # encode it as bytes, and record the length
+    unamebytes = uname.encode('utf-8')
+    # convert store the length in a 4byte array in big-endian
+    unamelength = len(unamebytes).to_bytes(4, byteorder='big')
+    
+    print("Please enter a password: ")
+    upassword = sys.stdin.readline()
+    upassword = upassword.strip('\n')
+    upasswordbytes = upassword.encode('utf-8')
+
+    salt = os.urandom(16)
+
+    x = int.from_bytes(hashBytes(salt+upasswordbytes), byteorder='big')
+    print("Client: I = \'"+uname+"\'", flush=True)
         
 if __name__ == "__main__":
     main()

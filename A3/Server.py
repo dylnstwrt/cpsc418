@@ -56,6 +56,8 @@ def gen_public(phi_n):
 
 def main():
     
+    saltDict = dict()
+    vDict = dict()
     p = generatePrime(512)
     q = generatePrime(512)
     n = p*q
@@ -82,7 +84,28 @@ def main():
         tpp_n = conn.recv(128)
         tpp_sig = conn.recv(128)
         conn.close()
-        
+    
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((HOST, PORT))
+        while True:
+            print("Server Listening...")
+            s.listen()
+            with s:
+                switch = s.recv(1).decode('utf-8')
+                length = int.from_bytes(s.recv(4), byteorder='big')
+                user = s.recv(length).decode('utf-8')
+                user = user.strip('\n')
+                
+                if switch == 'r':
+                    salt = s.recv(16)
+                    print("Server: s = <"+s.hex()+">",flush=True)
+                    v = int.from_bytes(s.recv(64), byteorder='big')
+                    print("Server: v =",v,flush=True)
+                    saltDict.update({user: salt})
+                    vDict.update({user: v})
+                    print("Server: Registration successful")
+                
+                if switch == 'p':
 
 if __name__ == "__main__":
     main()
