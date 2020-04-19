@@ -84,7 +84,11 @@ def genRand(prime):
     return secrets.SystemRandom().randint(0, upperBound)
 
 def main():
-    
+    """
+    if (len(sys.argv) != 2):
+        print("Usage: Server.py <outFilename>")
+        exit(-1)
+    """
     print("Please enter a server name: ")
     server_name = sys.stdin.readline()
     server_name = server_name.strip('\n')
@@ -139,6 +143,8 @@ def main():
                     saltDict.update({user: salt})
                     vDict.update({user: v})
                 if switch == 'p':
+                    salt = saltDict.get(user)
+                    v = vDict.get(user)
                     # account in client for N, g being sent each time
                     cert = server_name_length+server_name_bytes+pk_server+ttp_Sig
                     conn.sendall(cert)
@@ -154,7 +160,7 @@ def main():
                     
                     B_int = (((k*v)%N) + pow(g,b,N))%N
                     B = B_int.to_bytes(64, byteorder='big')
-                    
+                    conn.send(salt)
                     conn.sendall(B)
                     
                     u = int.from_bytes(hashBytes(A.to_bytes(64, byteorder='big') + B), byteorder='big') % N

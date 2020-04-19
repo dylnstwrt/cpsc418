@@ -30,6 +30,12 @@ def hashBytes(bytesToHash):
     return digest.finalize()
     
 def main():
+    """
+    if (len(sys.argv) != 2):
+        print("Usage: Client.py <inFilename>")
+        exit(-1)
+    """
+        
     print("Please enter a username: ")
     uname = sys.stdin.readline()
     uname = uname.strip('\n')
@@ -97,12 +103,11 @@ def main():
             conn.close()
         
         # here be issues, generating and sending A incorrectly
-        
         a = genRand(N)
         A = pow(g,a,N)
         enc_A = pow(A, int.from_bytes(Server_e,byteorder='big'), int.from_bytes(Server_N, byteorder='big'))
         conn.sendall(enc_A.to_bytes(128, byteorder='big'))
-        
+        salt = conn.recv(16)
         B = int.from_bytes(conn.recv(64), byteorder='big')
         N_bytes = N.to_bytes(64, byteorder='big')
         g_bytes = g.to_bytes(64, byteorder='big')
@@ -121,7 +126,7 @@ def main():
         else:
             print("Client: Negotiation unsuccessful", flush=True)
             conn.close()
-            
+        
         
 if __name__ == "__main__":
     main()

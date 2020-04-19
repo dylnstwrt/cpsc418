@@ -96,6 +96,6 @@ def main():
                 if (msg == "REQUEST KEY"):
                     print("REQUEST KEY")
                     conn.sendall(n.to_bytes(128, byteorder='big') + e.to_bytes(128, byteorder='big'))
-                    exit(1)
+                    exit(0)
 if __name__ == "__main__":
     main()
