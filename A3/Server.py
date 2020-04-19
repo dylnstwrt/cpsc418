@@ -16,8 +16,9 @@ import sympy
 import secrets
 import time
 
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, padding
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 
 HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
@@ -82,6 +83,14 @@ def hashBytes(bytesToHash):
 def genRand(prime):
     upperBound = prime - 2
     return secrets.SystemRandom().randint(0, upperBound)
+
+def keygen(password):
+    long_key = hashBytes(password.to_bytes(64, byteorder='big'))
+    #long_key = sha1_digest(password)
+    key = bytearray(32)
+    for i in range(32):
+        key[i] = long_key[i]
+    return key
 
 def main():
     """
@@ -174,7 +183,35 @@ def main():
                     else:
                         conn.sendall(M_1)
                         print("Server: Negotiation unsucessful",flush=True)
-                        
+                        conn.close()
+                    
+                    size = int.from_bytes(conn.recv(4), byteorder='big')
+                    iv = conn.recv(16)
+                    ciphertext = conn.recv(size)
+                    
+                    key = keygen(k_server)
+                    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+
+                    decryptor = cipher.decryptor()
+                    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+
+                    unpadder = padding.PKCS7(128).unpadder()
+                    message = unpadder.update(plaintext)
+                    message += unpadder.finalize()
+                    
+                    offset = len(message) - 32
+                    plaintext = message[:offset]
+                    tag = message[offset:]
+                    
+                    print(message)
+                    print(plaintext)
+                    print(tag)
+                    
+                    if (tag == hashBytes(plaintext)):
+                        print("Match")
+                        output = open("PTXT", "wb")
+                        output.write(plaintext)
+                        output.close()
                     
 if __name__ == "__main__":
     main()

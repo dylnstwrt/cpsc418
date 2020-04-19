@@ -15,8 +15,10 @@ import sympy
 import secrets
 import time
 
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, padding
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
 HOST = '127.0.0.1'  # The server's hostname or IP address. This is the local host address
 PORT = 31803       # The port used by the server, usually between 0 - 65535. Lower ports may be resrved
     
@@ -28,6 +30,14 @@ def hashBytes(bytesToHash):
     digest = hashes.Hash(hashes.SHA3_256(), backend=default_backend())
     digest.update(bytesToHash)
     return digest.finalize()
+    
+def keygen(password):
+    long_key = hashBytes(password.to_bytes(64, byteorder='big'))
+    #long_key = sha1_digest(password)
+    key = bytearray(32)
+    for i in range(32):
+        key[i] = long_key[i]
+    return key
     
 def main():
     """
@@ -126,6 +136,33 @@ def main():
         else:
             print("Client: Negotiation unsuccessful", flush=True)
             conn.close()
+        
+        fd = open(sys.argv[1])
+        byteArr = bytearray(fd.read(), "utf-8")
+        fd.close()
+        
+        tag = hashBytes(byteArr)
+        print(len(tag))
+        extended_byteArr = byteArr + tag
+        #print(extended_byteArr)
+        key = keygen(k_client)
+        iv = os.urandom(16)
+        
+        padder = padding.PKCS7(128).padder()
+        padded_data = padder.update(bytes(extended_byteArr))
+        padded_data += padder.finalize()
+        
+        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        
+        ciphertext =  encryptor.update(padded_data) + encryptor.finalize()
+        
+        forTransfer = iv + ciphertext
+        
+        size = len(ciphertext).to_bytes(4, byteorder='big')
+        
+        conn.sendall(size + forTransfer)
+        
         
         
 if __name__ == "__main__":
