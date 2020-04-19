@@ -54,7 +54,7 @@ def gen_rsa_pub(phi_n):
             return e
 
 def hashBytes(bytesToHash):
-    digest = hashes.Hash(hashes.SHA512(), backend=default_backend())
+    digest = hashes.Hash(hashes.SHA3_512(), backend=default_backend())
     digest.update(bytesToHash)
     return digest.finalize()
 

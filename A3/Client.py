@@ -5,8 +5,8 @@ File: Client.py
 Class: CPSC418 - Winter 2020
 Name: Dylan Stewart
 UCID: 30024193
-Assignment : 2
-Problem: 9
+Assignment : 3
+Problem: 8
 '''
 
 import socket
@@ -98,11 +98,11 @@ def main():
         Server_e = conn.recv(128)
         ttp_sig = int.from_bytes(conn.recv(128), byteorder='big')
         
-        digest = hashes.Hash(hashes.SHA512(), backend=default_backend())
+        digest = hashes.Hash(hashes.SHA3_512(), backend=default_backend())
         digest.update(servername_bytes+Server_N+Server_e)
         t = digest.finalize()
         
-        digest2 = hashes.Hash(hashes.SHA512(), backend=default_backend())
+        digest2 = hashes.Hash(hashes.SHA3_512(), backend=default_backend())
         digest2.update(t)
         t_naught = digest2.finalize()
         t_naught = int.from_bytes(t_naught, byteorder='big') % ttp_n
@@ -112,7 +112,6 @@ def main():
             print("Unverified")
             conn.close()
         
-        # here be issues, generating and sending A incorrectly
         a = genRand(N)
         A = pow(g,a,N)
         enc_A = pow(A, int.from_bytes(Server_e,byteorder='big'), int.from_bytes(Server_N, byteorder='big'))
@@ -162,8 +161,6 @@ def main():
         size = len(ciphertext).to_bytes(4, byteorder='big')
         
         conn.sendall(size + forTransfer)
-        
-        
-        
+    
 if __name__ == "__main__":
     main()
