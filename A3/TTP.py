@@ -54,8 +54,12 @@ def gen_public(phi_n):
         e = secrets.randbelow(phi_n)
         if (e >= 1) & (sympy.gcd(e, phi_n) == 1):
             return e
-    
 
+def hashBytes(bytesToHash):
+    digest = hashes.Hash(hashes.SHA512(), backend=default_backend())
+    digest.update(bytesToHash)
+    return digest.finalize()
+    
 def main():
     
     p = generatePrime(512)
@@ -68,33 +72,29 @@ def main():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST,PORT))
         while True:
-            print("TPP Listening...")
+            print("TTP Listening for connections...")
             s.listen()
             conn, addr = s.accept()
             with conn:
                 msg = conn.recv(11).decode('utf-8')
                 if (msg == "REQUEST SIG"):
                     conn.recv(1)
-                    
+                    print("REQUEST SIGN")
                     nameLength = int.from_bytes(conn.recv(4), byteorder='big')
                     name_bytes = conn.recv(nameLength)
                     pk_server = conn.recv(256)
-
-                    digest = hashes.Hash(hashes.SHA512(), backend=default_backend())
-                    digest.update(name_bytes+pk_server)
-                    t = digest.finalize()
                     
-                    digest2 = hashes.Hash(hashes.SHA512(), backend=default_backend())
-                    digest2.update(t)
-                    t_naught = digest2.finalize()
+                    t = hashBytes(name_bytes+pk_server)
+                    t_naught = hashBytes(t)
                     
-                    reduction = int.from_bytes(t+t_naught, byteorder='big') % n
-                    signature = pow(reduction, d, n)
+                    t_naught = int.from_bytes(t_naught, byteorder='big') % n
+                    signature = pow(t_naught, d, n)
                     
                     conn.sendall(n.to_bytes(128, byteorder='big') + signature.to_bytes(128, byteorder='big'))
                     conn.close()
                     
                 if (msg == "REQUEST KEY"):
+                    print("REQUEST KEY")
                     conn.sendall(n.to_bytes(128, byteorder='big') + e.to_bytes(128, byteorder='big'))
                     exit(1)
 if __name__ == "__main__":
