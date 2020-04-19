@@ -98,7 +98,30 @@ def main():
         
         # here be issues, generating and sending A incorrectly
         
+        a = genRand(N)
+        A = pow(g,a,N)
+        enc_A = pow(A, int.from_bytes(Server_e,byteorder='big'), int.from_bytes(Server_N, byteorder='big'))
+        conn.sendall(enc_A.to_bytes(128, byteorder='big'))
+        
+        B = int.from_bytes(conn.recv(64), byteorder='big')
+        N_bytes = N.to_bytes(64, byteorder='big')
+        g_bytes = g.to_bytes(64, byteorder='big')
+        to_hash = N_bytes + g_bytes
+        k = int.from_bytes(hashBytes(to_hash), byteorder='big')
+        x = int.from_bytes(hashBytes(salt+upasswordbytes), byteorder='big')
+        u = int.from_bytes(hashBytes(A.to_bytes(64, byteorder='big') + B.to_bytes(64, byteorder='big')), byteorder='big') % N
+        k_client = pow((int.from_bytes(B.to_bytes(64, byteorder='big'), byteorder='big')%N) - ((k * int.from_bytes(v, byteorder='big'))%N), (a + (u*x)), N)
+        print(k_client)
+        
+        M_1 = hashBytes(A.to_bytes(64, byteorder='big') + B.to_bytes(64, byteorder='big') + k_client.to_bytes(64,byteorder='big'))
+        conn.sendall(M_1)
+        M_2 = hashBytes(A.to_bytes(64, byteorder='big') + M_1 + k_client.to_bytes(64, byteorder='big'))
+        if (M_2 == conn.recv(64)):
+            print("YES")
+        else:
+            print("Client: Negotiation unsuccessful", flush=True)
+            conn.close()
+            
         
 if __name__ == "__main__":
     main()
-#print('Received', repr(data))

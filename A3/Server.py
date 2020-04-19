@@ -77,7 +77,7 @@ def calculatePrimRoots(num):
 def hashBytes(bytesToHash):
     digest = hashes.Hash(hashes.SHA3_256(), backend=default_backend())
     digest.update(bytesToHash)
-    return digest.finalize
+    return digest.finalize()
     
 def genRand(prime):
     upperBound = prime - 2
@@ -142,6 +142,33 @@ def main():
                     # account in client for N, g being sent each time
                     cert = server_name_length+server_name_bytes+pk_server+ttp_Sig
                     conn.sendall(cert)
+                    enc_A = int.from_bytes(conn.recv(128), byteorder='big')
+                    
+                    A = pow(enc_A, d, Server_N)
+                    
+                    b = genRand(N)
+                    N_bytes = N.to_bytes(64, byteorder='big')
+                    g_bytes = g.to_bytes(64, byteorder='big')
+                    to_hash = N_bytes + g_bytes
+                    k = int.from_bytes(hashBytes(to_hash), byteorder='big')
+                    
+                    B_int = (((k*v)%N) + pow(g,b,N))%N
+                    B = B_int.to_bytes(64, byteorder='big')
+                    
+                    conn.sendall(B)
+                    
+                    u = int.from_bytes(hashBytes(A.to_bytes(64, byteorder='big') + B), byteorder='big') % N
+                    k_server = pow(((int.from_bytes(A.to_bytes(64, byteorder='big'), byteorder='big') % N) * pow(v,u,N)), b, N)
+                    
+                    M_1 = hashBytes(A.to_bytes(64, byteorder='big') + B + k_server.to_bytes(64,byteorder='big'))
+                    
+                    if (M_1 == conn.recv(64)):
+                        M_2 = hashBytes(A.to_bytes(64, byteorder='big') + M_1 + k_server.to_bytes(64, byteorder='big'))
+                        conn.sendall(M_2)
+                    else:
+                        conn.sendall(M_1)
+                        print("Server: Negotiation unsucessful",flush=True)
+                        
                     
 if __name__ == "__main__":
     main()
