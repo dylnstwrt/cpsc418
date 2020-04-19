@@ -21,7 +21,7 @@ from cryptography.hazmat.backends import default_backend
 
 
 HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
-PORT = 31802        # Port to listen on (non-privileged ports are > 1023)
+PORT = 31803        # Port to listen on (non-privileged ports are > 1023)
 
 def xgcd(a, b):
     """return (g, x, y) such that a*x + b*y = g = gcd(a, b)"""
@@ -37,8 +37,23 @@ def modinv(a, b):
     """return x such that (x * a) % b == 1"""
     g, x, _ = xgcd(a, b)
     return x % b
+    
 
-def generatePrime(size):
+def generatePrime():
+    while True:
+        q = secrets.randbits(511)
+        while True:
+            if sympy.isprime(q):
+                break
+            else:
+                if (q % 2 == 0):
+                    q = q + 1
+                q = q + 2
+        N = (2*q) + 1
+        if sympy.isprime(N):
+            return N
+
+def generate_RSA_Prime(size):
     p = secrets.randbits(size)
     while True:
         if sympy.isprime(p):
@@ -53,21 +68,22 @@ def gen_public(phi_n):
         e = secrets.randbelow(phi_n)
         if (e >= 1) & (sympy.gcd(e, phi_n) == 1):
             return e
+            
+def calculatePrimRoots(num):
+    for i in range(1, num, 1):
+        if sympy.is_primitive_root(i, num):
+            return i
+            
+def hashBytes(bytesToHash):
+    digest = hashes.Hash(hashes.SHA3_256(), backend=default_backend())
+    digest.update(bytesToHash)
+    return digest.finalize
+    
+def genRand(prime):
+    upperBound = prime - 2
+    return secrets.SystemRandom().randint(0, upperBound)
 
 def main():
-    
-    saltDict = dict()
-    vDict = dict()
-    p = generatePrime(512)
-    q = generatePrime(512)
-    n = p*q
-    phi_n = (p - 1)*(q - 1)
-    e = gen_public(phi_n)
-    d = modinv(e, phi_n)
-    
-    # what do we consider to be pk_server????
-    # e is the public key for RSA????
-    pk_server = n.to_bytes(128, byteorder='big') + e.to_bytes(128, byteorder='big')
     
     print("Please enter a server name: ")
     server_name = sys.stdin.readline()
@@ -76,13 +92,31 @@ def main():
     server_name_bytes = server_name.encode('utf-8')
     server_name_length = len(server_name_bytes).to_bytes(4, byteorder='big')
     
+    saltDict = dict()
+    vDict = dict()
+    
+    ##### RSA #####
+    p = generate_RSA_Prime(512)
+    q = generate_RSA_Prime(512)
+    Server_N = p*q
+    phi_n = (p - 1)*(q - 1)
+    e = gen_public(phi_n)
+    d = modinv(e, phi_n)
+    
+    ##### Key Exchange #####
+    N = generatePrime()
+    g = calculatePrimRoots(N)
+    
+    # @327 Piazza
+    pk_server = Server_N.to_bytes(128, byteorder='big') + e.to_bytes(128, byteorder='big')
+    
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as conn:
-        conn.connect((HOST,PORT))
+        conn.connect((HOST,31802))
         conn.sendall(b"REQUEST SIGN")
         time.sleep(1)
         conn.sendall(server_name_length+server_name_bytes+pk_server)
-        tpp_n = conn.recv(128)
-        tpp_sig = conn.recv(128)
+        ttp_N = conn.recv(128)
+        ttp_Sig = conn.recv(128)
         conn.close()
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -90,22 +124,24 @@ def main():
         while True:
             print("Server Listening...")
             s.listen()
-            with s:
-                switch = s.recv(1).decode('utf-8')
-                length = int.from_bytes(s.recv(4), byteorder='big')
-                user = s.recv(length).decode('utf-8')
+            conn, addr = s.accept()
+            with conn:
+                publicBytes =  N.to_bytes(64, byteorder='big') + g.to_bytes(64, byteorder='big')
+                conn.sendall(publicBytes)
+                switch = conn.recv(1).decode('utf-8')
+                length = int.from_bytes(conn.recv(4), byteorder='big')
+                uname = conn.recv(length)
+                user = uname.decode('utf-8')
                 user = user.strip('\n')
-                
                 if switch == 'r':
-                    salt = s.recv(16)
-                    print("Server: s = <"+s.hex()+">",flush=True)
-                    v = int.from_bytes(s.recv(64), byteorder='big')
-                    print("Server: v =",v,flush=True)
+                    salt = conn.recv(16)
+                    v = int.from_bytes(conn.recv(64), byteorder='big')
                     saltDict.update({user: salt})
                     vDict.update({user: v})
-                    print("Server: Registration successful")
-                
                 if switch == 'p':
-
+                    # account in client for N, g being sent each time
+                    cert = server_name_length+server_name_bytes+pk_server+ttp_Sig
+                    conn.sendall(cert)
+                    
 if __name__ == "__main__":
     main()
