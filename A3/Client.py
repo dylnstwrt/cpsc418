@@ -39,6 +39,23 @@ def keygen(password):
         key[i] = long_key[i]
     return key
     
+def rsa_encrypt(m, e, n):
+    return pow(m, e, n)
+    
+def rsa_sig_verify(ttp_sig, tpp_e, ttp_n, servername_bytes, Server_N, Server_e):
+    digest = hashes.Hash(hashes.SHA3_512(), backend=default_backend())
+    digest.update(servername_bytes+Server_N+Server_e)
+    t = digest.finalize()
+    
+    digest2 = hashes.Hash(hashes.SHA3_512(), backend=default_backend())
+    digest2.update(t)
+    t_naught = digest2.finalize()
+    t_naught = int.from_bytes(t_naught, byteorder='big') % ttp_n
+    if(t_naught == pow(ttp_sig, tpp_e, ttp_n)):
+        return True
+    else:
+        return False
+    
 def main():
     """
     if (len(sys.argv) != 2):
@@ -98,23 +115,12 @@ def main():
         Server_e = conn.recv(128)
         ttp_sig = int.from_bytes(conn.recv(128), byteorder='big')
         
-        digest = hashes.Hash(hashes.SHA3_512(), backend=default_backend())
-        digest.update(servername_bytes+Server_N+Server_e)
-        t = digest.finalize()
-        
-        digest2 = hashes.Hash(hashes.SHA3_512(), backend=default_backend())
-        digest2.update(t)
-        t_naught = digest2.finalize()
-        t_naught = int.from_bytes(t_naught, byteorder='big') % ttp_n
-        if(t_naught == pow(ttp_sig, tpp_e, ttp_n)):
-            print("Verified")
-        else:
-            print("Unverified")
-            conn.close()
-        
+        if (rsa_sig_verify(ttp_sig, tpp_e, ttp_n, servername_bytes, Server_N, Server_e) == False):
+            exit(-1)
+            
         a = genRand(N)
         A = pow(g,a,N)
-        enc_A = pow(A, int.from_bytes(Server_e,byteorder='big'), int.from_bytes(Server_N, byteorder='big'))
+        enc_A = rsa_encrypt(A, int.from_bytes(Server_e,byteorder='big'), int.from_bytes(Server_N, byteorder='big'))
         conn.sendall(enc_A.to_bytes(128, byteorder='big'))
         salt = conn.recv(16)
         B = int.from_bytes(conn.recv(64), byteorder='big')

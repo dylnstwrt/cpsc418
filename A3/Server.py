@@ -101,6 +101,9 @@ def keygen(password):
         key[i] = long_key[i]
     return key
 
+def rsa_decrypt(c, d, n):
+    return pow(c, d, n)
+
 def main():
     """
     if (len(sys.argv) != 2):
@@ -163,7 +166,7 @@ def main():
                     conn.sendall(cert)
                     enc_A = int.from_bytes(conn.recv(128), byteorder='big')
                     
-                    A = pow(enc_A, d, Server_N)
+                    A = rsa_decrypt(enc_A, d, Server_N)
                     
                     b = genRand(N)
                     N_bytes = N.to_bytes(64, byteorder='big')
