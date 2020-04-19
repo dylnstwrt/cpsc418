@@ -5,8 +5,8 @@ File: Server.py
 Class: CPSC418 - Winter 2020
 Name: Dylan Stewart
 UCID: 30024193
-Assignment : 2
-Problem: 9
+Assignment : 3
+Problem: 8
 '''
 
 import socket
@@ -64,7 +64,7 @@ def generate_RSA_Prime(size):
                 p = p + 1
             p = p + 2
 
-def gen_public(phi_n):
+def gen_rsa_pub(phi_n):
     while True:
         e = secrets.randbelow(phi_n)
         if (e >= 1) & (sympy.gcd(e, phi_n) == 1):
@@ -83,6 +83,15 @@ def hashBytes(bytesToHash):
 def genRand(prime):
     upperBound = prime - 2
     return secrets.SystemRandom().randint(0, upperBound)
+
+def rsa_keygen():
+    p = generate_RSA_Prime(512)
+    q = generate_RSA_Prime(512)
+    n = p*q
+    phi_n = (p - 1)*(q - 1)
+    e = gen_rsa_pub(phi_n)
+    d = modinv(e, phi_n)
+    return e, d, n
 
 def keygen(password):
     long_key = hashBytes(password.to_bytes(64, byteorder='big'))
@@ -109,19 +118,14 @@ def main():
     vDict = dict()
     
     ##### RSA #####
-    p = generate_RSA_Prime(512)
-    q = generate_RSA_Prime(512)
-    Server_N = p*q
-    phi_n = (p - 1)*(q - 1)
-    e = gen_public(phi_n)
-    d = modinv(e, phi_n)
+    Server_e, d, Server_N = rsa_keygen()
     
     ##### Key Exchange #####
     N = generatePrime()
     g = calculatePrimRoots(N)
     
     # @327 Piazza
-    pk_server = Server_N.to_bytes(128, byteorder='big') + e.to_bytes(128, byteorder='big')
+    pk_server = Server_N.to_bytes(128, byteorder='big') + Server_e.to_bytes(128, byteorder='big')
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as conn:
         conn.connect((HOST,31802))
