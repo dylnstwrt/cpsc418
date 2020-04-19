@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 '''
-File: Server.py
+File: TTP.py
 Class: CPSC418 - Winter 2020
 Name: Dylan Stewart
 UCID: 30024193
-Assignment : 2
-Problem: 9
+Assignment : 3
+Problem: 8
 '''
 
 import socket
@@ -59,15 +59,18 @@ def hashBytes(bytesToHash):
     digest = hashes.Hash(hashes.SHA512(), backend=default_backend())
     digest.update(bytesToHash)
     return digest.finalize()
-    
-def main():
-    
+
+def rsa_keygen():
     p = generatePrime(512)
     q = generatePrime(512)
     n = p*q
     phi_n = (p - 1)*(q - 1)
     e = gen_public(phi_n)
     d = modinv(e, phi_n)
+    return e, d, n
+def main():
+    
+    e, d, n = rsa_keygen()
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST,PORT))
