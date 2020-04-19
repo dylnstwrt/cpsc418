@@ -23,7 +23,6 @@ from cryptography.hazmat.backends import default_backend
 HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
 PORT = 31802        # Port to listen on (non-privileged ports are > 1023)
 
-#review/understand better
 def xgcd(a, b):
     """return (g, x, y) such that a*x + b*y = g = gcd(a, b)"""
     x0, x1, y0, y1 = 0, 1, 1, 0
@@ -33,13 +32,12 @@ def xgcd(a, b):
         x0, x1 = x1, x0 - q * x1
     return b, x0, y0
 
-#review/understand better
 def modinv(a, b):
     """return x such that (x * a) % b == 1"""
     g, x, _ = xgcd(a, b)
     return x % b
 
-def generatePrime(size):
+def generate_RSA_Prime(size):
     p = secrets.randbits(size)
     while True:
         if sympy.isprime(p):
@@ -49,7 +47,7 @@ def generatePrime(size):
                 p = p + 1
             p = p + 2
 
-def gen_public(phi_n):
+def gen_rsa_pub(phi_n):
     while True:
         e = secrets.randbelow(phi_n)
         if (e >= 1) & (sympy.gcd(e, phi_n) == 1):
@@ -61,13 +59,21 @@ def hashBytes(bytesToHash):
     return digest.finalize()
 
 def rsa_keygen():
-    p = generatePrime(512)
-    q = generatePrime(512)
+    p = generate_RSA_Prime(512)
+    q = generate_RSA_Prime(512)
     n = p*q
     phi_n = (p - 1)*(q - 1)
-    e = gen_public(phi_n)
+    e = gen_rsa_pub(phi_n)
     d = modinv(e, phi_n)
     return e, d, n
+
+def rsa_sig_gen(data, d, n):
+    t = hashBytes(data)
+    t_naught = hashBytes(t)
+    
+    t_naught = int.from_bytes(t_naught, byteorder='big') % n
+    return pow(t_naught, d, n)
+    
 def main():
     
     e, d, n = rsa_keygen()
@@ -87,12 +93,7 @@ def main():
                     name_bytes = conn.recv(nameLength)
                     pk_server = conn.recv(256)
                     
-                    t = hashBytes(name_bytes+pk_server)
-                    t_naught = hashBytes(t)
-                    
-                    t_naught = int.from_bytes(t_naught, byteorder='big') % n
-                    signature = pow(t_naught, d, n)
-                    
+                    signature = rsa_sig_gen(name_bytes+pk_server, d, n)
                     conn.sendall(n.to_bytes(128, byteorder='big') + signature.to_bytes(128, byteorder='big'))
                     conn.close()
                     
@@ -100,5 +101,6 @@ def main():
                     print("REQUEST KEY")
                     conn.sendall(n.to_bytes(128, byteorder='big') + e.to_bytes(128, byteorder='big'))
                     exit(0)
+
 if __name__ == "__main__":
     main()
