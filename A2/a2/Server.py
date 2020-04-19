@@ -25,10 +25,14 @@ PORT = 31802        # Port to listen on (non-privileged ports are > 1023)
 
 def generatePrime():
     while True:
+        q = secrets.randbits(511)
         while True:
-            q = secrets.randbits(511)
             if sympy.isprime(q):
                 break
+            else:
+                if (q % 2 == 0):
+                    q = q + 1
+                q = q + 2
         N = (2*q) + 1
         if sympy.isprime(N):
             return N
