@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 
 
-HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
+HOST = '127.0.4.18'  # Standard loopback interface address (localhost)
 PORT = 31802        # Port to listen on (non-privileged ports are > 1023)
 
 def xgcd(a, b):
@@ -38,14 +38,20 @@ def modinv(a, b):
     return x % b
 
 def generate_RSA_Prime(size):
-    p = secrets.randbits(size)
     while True:
-        if sympy.isprime(p):
-            return p
-        else:
-            if (p % 2 == 0):
-                p = p + 1
-            p = p + 2
+        p = secrets.randbits(size)
+        while True:
+            if sympy.isprime(p):
+                p = (2*p) + 1
+                if sympy.isprime(p):
+                    return p
+                else:
+                    break
+            else:
+                if (p % 2 == 0):
+                    p = p + 1
+                p = p + 2
+        
 
 def gen_rsa_pub(phi_n):
     while True:
@@ -59,19 +65,24 @@ def hashBytes(bytesToHash):
     return digest.finalize()
 
 def rsa_keygen():
-    p = generate_RSA_Prime(512)
-    q = generate_RSA_Prime(512)
+    p = generate_RSA_Prime(256)
+    q = generate_RSA_Prime(256)
     n = p*q
     phi_n = (p - 1)*(q - 1)
     e = gen_rsa_pub(phi_n)
     d = modinv(e, phi_n)
+    print("TTP: TTP_p =",p,flush=True)
+    print("TTP: TTP_q =",q,flush=True)
+    print("TTP: TTP_N =",n,flush=True)
+    print("TTP: TTP_e =", e,flush=True)
+    print("TTP: TTP_d =",d,flush=True)
     return e, d, n
 
 def rsa_sig_gen(data, d, n):
     t = hashBytes(data)
     t_naught = hashBytes(t)
     
-    t_naught = int.from_bytes(t_naught, byteorder='big') % n
+    t_naught = int.from_bytes(t+t_naught, byteorder='big') % n
     return pow(t_naught, d, n)
     
 def main():
@@ -80,7 +91,7 @@ def main():
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST,PORT))
-        while True:
+        while True:#
             print("TTP Listening for connections...")
             s.listen()
             conn, addr = s.accept()
@@ -91,16 +102,24 @@ def main():
                     print("REQUEST SIGN")
                     nameLength = int.from_bytes(conn.recv(4), byteorder='big')
                     name_bytes = conn.recv(nameLength)
-                    pk_server = conn.recv(256)
-                    
-                    signature = rsa_sig_gen(name_bytes+pk_server, d, n)
+                    print("TTP: S = \'"+name_bytes.decode('utf-8')+"\'", flush=True)
+                    Server_N = conn.recv(128)
+                    print("TTP: Server_N =", int.from_bytes(Server_N, byteorder='big'), flush=True)
+                    Server_e = conn.recv(128)
+                    print("TTP: Server_e =", int.from_bytes(Server_e, byteorder='big'), flush=True)
+                    signature = rsa_sig_gen(name_bytes+Server_N+Server_e, d, n)
+                    print("TTP: TTP_SIG =",signature,flush='True')
+                    print("TTP: Sending TTP_N <"+n.to_bytes(128, byteorder='big').hex()+">",flush=True)
+                    print("TTP: Sending TTP_SIG <"+signature.to_bytes(128, byteorder='big').hex()+">",flush=True)
                     conn.sendall(n.to_bytes(128, byteorder='big') + signature.to_bytes(128, byteorder='big'))
                     conn.close()
                     
                 if (msg == "REQUEST KEY"):
                     print("REQUEST KEY")
+                    print("TTP: Sending TTP_N <"+n.to_bytes(128, byteorder='big').hex()+">",flush=True)
+                    print("TTP: Sending TTP_e <"+e.to_bytes(128, byteorder='big').hex()+">",flush=True)
                     conn.sendall(n.to_bytes(128, byteorder='big') + e.to_bytes(128, byteorder='big'))
-                    exit(0)
+                    #exit(0)
 
 if __name__ == "__main__":
     main()
